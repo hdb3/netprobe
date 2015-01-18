@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 
 #define MSG_MAX 65535
+#define DONT_ECHO_DATA 1
 
 /*
  * error - wrapper for perror
@@ -93,7 +94,7 @@ int main(int argc, char **argv) {
     hostaddrp = inet_ntoa(clientaddr.sin_addr);
     if (hostaddrp == NULL)
       error("ERROR on inet_ntoa\n");
-    n = sendto(sockfd, buf, strlen(buf), 0, 
+    n = sendto(sockfd, buf, DONT_ECHO_DATA ? 6 : strlen(buf), 0, 
 	       (struct sockaddr *) &clientaddr, clientlen);
     if (n < 0) 
       error("ERROR in sendto");

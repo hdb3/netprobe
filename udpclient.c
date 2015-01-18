@@ -15,6 +15,7 @@
 #include <sys/param.h>
 
 #define MAX_MSG 65535
+#define MIN_USEC_RECV 100
 
 /* 
  * error - wrapper for perror
@@ -55,6 +56,7 @@ int main(int argc, char **argv) {
     char *hostname;
     char *sbuf = malloc(MAX_MSG);
     char *rbuf = malloc(MAX_MSG);
+    char key[8];
     int timed_out=0;
 
     /* check command line arguments */
@@ -103,8 +105,11 @@ int main(int argc, char **argv) {
     min_b.tv_sec=LONG_MAX;
     timerclear(&acc_a);
     timerclear(&acc_b);
+    srand ( 123 );
     for (cnt=0; cnt < repeat_count ; cnt++) {
     gettimeofday(&t0,NULL);
+    sprintf(key,"%06d",rand());
+    memcpy(sbuf,key,6);
     /* send the message to the server */
     n = sendto(sockfd, sbuf, msg_size, 0, (struct sockaddr *) &serveraddr, sizeof(serveraddr));
     if (n < 0) 
@@ -115,8 +120,8 @@ int main(int argc, char **argv) {
     FD_SET(sockfd, &rfds);
     FD_ZERO(&xfds);
     FD_SET(sockfd, &xfds);
-    tv.tv_sec = 5;
-    tv.tv_usec = 0;
+    tv.tv_sec = 0;
+    tv.tv_usec = 100000;
     n = select(FD_SETSIZE,&rfds,NULL,&xfds,&tv);
     if (n < 0) 
       printf("ERROR in select (%d) %s\n",errno,strerror(errno));
@@ -145,17 +150,23 @@ int main(int argc, char **argv) {
         printf("ERROR in 2nd recv with MSG_ERRQUEUE (%d) %s\n",errno,strerror(errno));
     } else
       printf("Echo from server: %d bytes (%zd)\n", n, strlen(rbuf));
-    struct timeval ta,tb;
-    timersub(&t1,&t0,&ta);
-    timersub(&t2,&t1,&tb);
-    timeradd(&ta,&acc_a,&acc_a);
-    timeradd(&tb,&acc_b,&acc_b);
-    min_a=*timermin(&min_a,&ta);
-    min_b=*timermin(&min_b,&tb);
-/*
-*/
-    printf("(%d)time to send: %f\n", cnt, tv_flt(&ta));
-    printf("(%d)time to recv: %f\n", cnt, tv_flt(&tb));
+    if ((n<6) || 0 != memcmp(rbuf,key,6)) {
+        printf("bad reply, ignore\n");
+        sleep(1);
+        continue;
+    } else {
+        struct timeval ta,tb;
+        timersub(&t1,&t0,&ta);
+        timersub(&t2,&t1,&tb);
+        timeradd(&ta,&acc_a,&acc_a);
+        timeradd(&tb,&acc_b,&acc_b);
+        min_a=*timermin(&min_a,&ta);
+        if (tv_flt(&tb) < ((double) MIN_USEC_RECV) / 1000)
+           printf("bizarre low value for recv delay...\n");
+        min_b=*timermin(&min_b,&tb);
+        printf("(%d)time to send: %f\n", cnt, tv_flt(&ta));
+        printf("(%d)time to recv: %f\n", cnt, tv_flt(&tb));
+    }
     };
     printf("\n(average)time to send: %f(ms)\n", tv_flt(&acc_a)/repeat_count);
     printf("\n(average)time to recv: %f(ms)\n", tv_flt(&acc_b)/repeat_count);
