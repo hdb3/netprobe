@@ -29,6 +29,21 @@ double tv_flt(struct timeval *tv) {
     return (1000* (double) tv->tv_sec + ((double) (tv->tv_usec)) /1000);
 }
 
+struct timeval * timermin(struct timeval *a,struct timeval *b) {
+    if ( (a->tv_sec < b->tv_sec) || ( (a->tv_sec == b->tv_sec) && (a->tv_usec < b->tv_usec)))
+       return a;
+/*
+        min->tv_sec=a->tv_sec;
+        min->tv_usec=a->tv_usec;
+*/
+    else
+       return b;
+/*
+        min->tv_sec=b->tv_sec;
+        min->tv_usec=b->tv_usec;
+*/
+}
+
 int main(int argc, char **argv) {
     fd_set rfds,xfds;
     struct timeval tv;
@@ -40,6 +55,7 @@ int main(int argc, char **argv) {
     char *hostname;
     char *sbuf = malloc(MAX_MSG);
     char *rbuf = malloc(MAX_MSG);
+    int timed_out=0;
 
     /* check command line arguments */
     if (argc < 3) {
@@ -82,6 +98,9 @@ int main(int argc, char **argv) {
 
     struct timeval t0,t1,t2;
     struct timeval acc_a,acc_b;
+    struct timeval min_a,min_b;
+    min_a.tv_sec=LONG_MAX;
+    min_b.tv_sec=LONG_MAX;
     timerclear(&acc_a);
     timerclear(&acc_b);
     for (cnt=0; cnt < repeat_count ; cnt++) {
@@ -92,7 +111,6 @@ int main(int argc, char **argv) {
       error("ERROR in sendto");
     gettimeofday(&t1,NULL);
     
-/*
     FD_ZERO(&rfds);
     FD_SET(sockfd, &rfds);
     FD_ZERO(&xfds);
@@ -102,6 +120,12 @@ int main(int argc, char **argv) {
     n = select(FD_SETSIZE,&rfds,NULL,&xfds,&tv);
     if (n < 0) 
       printf("ERROR in select (%d) %s\n",errno,strerror(errno));
+    else if (n == 0) {
+      printf("select timedout\n");
+      timed_out++;
+      continue;
+    };
+/*
     printf("exit select\n");
     n = recvfrom(sockfd, rbuf, MAX_MSG, MSG_WAITALL || MSG_ERRQUEUE, (struct sockaddr *) &serveraddr, &serverlen);
     n = recv(sockfd, rbuf, MAX_MSG, MSG_ERRQUEUE ); 
@@ -126,11 +150,20 @@ int main(int argc, char **argv) {
     timersub(&t2,&t1,&tb);
     timeradd(&ta,&acc_a,&acc_a);
     timeradd(&tb,&acc_b,&acc_b);
+    min_a=*timermin(&min_a,&ta);
+    min_b=*timermin(&min_b,&tb);
+/*
+*/
     printf("(%d)time to send: %f\n", cnt, tv_flt(&ta));
     printf("(%d)time to recv: %f\n", cnt, tv_flt(&tb));
     };
     printf("\n(average)time to send: %f(ms)\n", tv_flt(&acc_a)/repeat_count);
     printf("\n(average)time to recv: %f(ms)\n", tv_flt(&acc_b)/repeat_count);
+    printf("\n(minimum)time to send: %f(ms)\n", tv_flt(&min_a));
+    printf("\n(minimum)time to recv: %f(ms)\n", tv_flt(&min_b));
+
+    if (timed_out > 0 )
+        printf("%d timeouts\n",timed_out);
 
     return 0;
 }
