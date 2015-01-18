@@ -26,7 +26,7 @@ void error(char *msg) {
 }
 
 double tv_flt(struct timeval *tv) {
-    return (1000*tv->tv_sec+tv->tv_usec/1000);
+    return (1000* (double) tv->tv_sec + ((double) (tv->tv_usec)) /1000);
 }
 
 int main(int argc, char **argv) {
