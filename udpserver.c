@@ -13,7 +13,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define BUFSIZE 1024
+#define MSG_MAX 65535
 
 /*
  * error - wrapper for perror
@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
   struct sockaddr_in serveraddr; /* server's addr */
   struct sockaddr_in clientaddr; /* client addr */
   struct hostent *hostp; /* client host info */
-  char buf[BUFSIZE]; /* message buf */
+  char *buf = malloc(MSG_MAX);
   char *hostaddrp; /* dotted decimal host addr string */
   int optval; /* flag value for setsockopt */
   int n; /* message byte size */
@@ -84,10 +84,10 @@ int main(int argc, char **argv) {
     /*
      * recvfrom: receive a UDP datagram from a client
      */
-    bzero(buf, BUFSIZE);
-    n = recvfrom(sockfd, buf, BUFSIZE, 0,
+    bzero(buf, MSG_MAX);
+    int rxcount = recvfrom(sockfd, buf, MSG_MAX, 0,
 		 (struct sockaddr *) &clientaddr, &clientlen);
-    if (n < 0)
+    if (rxcount < 0)
       error("ERROR in recvfrom");
 
     hostaddrp = inet_ntoa(clientaddr.sin_addr);
@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
 	       (struct sockaddr *) &clientaddr, clientlen);
     if (n < 0) 
       error("ERROR in sendto");
-    printf("server received datagram from %s\n", hostaddrp);
+    printf("server received %d bytes from %s\n", rxcount, hostaddrp);
     /* printf("server received %d/%d bytes: %s\n", strlen(buf), n, buf); */
   }
 }
